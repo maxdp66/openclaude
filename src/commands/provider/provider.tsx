@@ -20,13 +20,18 @@ import {
   resolveProviderRequest,
 } from '../../services/api/providerConfig.js'
 import {
+  applyProfileEnvToProcessEnv,
   buildCodexProfileEnv,
   buildGeminiProfileEnv,
   buildOllamaProfileEnv,
   buildOpenAIProfileEnv,
+  buildOpenRouterProfileEnv,
+  buildStartupEnvFromProfile,
   createProfileFile,
   DEFAULT_GEMINI_BASE_URL,
   DEFAULT_GEMINI_MODEL,
+  DEFAULT_OPENROUTER_BASE_URL,
+  DEFAULT_OPENROUTER_MODEL,
   deleteProfileFile,
   loadProfileFile,
   maskSecretForDisplay,
@@ -82,6 +87,9 @@ type Step =
       apiKey?: string
       authMode: 'api-key' | 'access-token' | 'adc'
     }
+  | { name: 'openrouter-key' }
+  | { name: 'openrouter-base'; apiKey: string }
+  | { name: 'openrouter-model'; apiKey: string; baseUrl: string | null }
   | { name: 'codex-check' }
 
 type CurrentProviderSummary = {
@@ -116,6 +124,7 @@ type ProviderWizardDefaults = {
   openAIModel: string
   openAIBaseUrl: string
   geminiModel: string
+  openRouterModel: string
 }
 
 function isEnvTruthy(value: string | undefined): boolean {
@@ -147,11 +156,15 @@ export function getProviderWizardDefaults(
   const safeGeminiModel =
     sanitizeProviderConfigValue(processEnv.GEMINI_MODEL, processEnv) ||
     DEFAULT_GEMINI_MODEL
+  const safeOpenRouterModel =
+    sanitizeProviderConfigValue(processEnv.OPENROUTER_MODEL, processEnv) ||
+    DEFAULT_OPENROUTER_MODEL
 
   return {
     openAIModel: safeOpenAIModel,
     openAIBaseUrl: safeOpenAIBaseUrl,
     geminiModel: safeGeminiModel,
+    openRouterModel: safeOpenRouterModel,
   }
 }
 
@@ -189,6 +202,21 @@ export function buildCurrentProviderSummary(options?: {
         processEnv.OPENAI_BASE_URL ??
           processEnv.OPENAI_API_BASE ??
           'https://models.github.ai/inference',
+        processEnv,
+      ),
+      savedProfileLabel,
+    }
+  }
+
+  if (isEnvTruthy(processEnv.CLAUDE_CODE_USE_OPENROUTER)) {
+    return {
+      providerLabel: 'OpenRouter',
+      modelLabel: getSafeDisplayValue(
+        processEnv.OPENROUTER_MODEL ?? DEFAULT_OPENROUTER_MODEL,
+        processEnv,
+      ),
+      endpointLabel: getSafeDisplayValue(
+        processEnv.OPENROUTER_BASE_URL ?? DEFAULT_OPENROUTER_BASE_URL,
         processEnv,
       ),
       savedProfileLabel,
@@ -291,6 +319,24 @@ function buildSavedProfileSummary(
           env,
         ),
       }
+    case 'openrouter':
+      return {
+        providerLabel: 'OpenRouter',
+        modelLabel: getSafeDisplayValue(
+          env.OPENROUTER_MODEL ?? DEFAULT_OPENROUTER_MODEL,
+          process.env,
+          env,
+        ),
+        endpointLabel: getSafeDisplayValue(
+          env.OPENROUTER_BASE_URL ?? DEFAULT_OPENROUTER_BASE_URL,
+          process.env,
+          env,
+        ),
+        credentialLabel:
+          maskSecretForDisplay(env.OPENROUTER_API_KEY) !== undefined
+            ? 'configured'
+            : undefined,
+      }
     case 'openai':
     default: {
       const baseUrl = env.OPENAI_BASE_URL ?? DEFAULT_OPENAI_BASE_URL
@@ -335,7 +381,7 @@ export function buildProfileSaveMessage(
   }
 
   lines.push(`Profile: ${filePath}`)
-  lines.push('Restart OpenClaude to use it.')
+  lines.push('Provider activated for this session. The saved profile will also persist across restarts.')
 
   return lines.join('\n')
 }
@@ -356,15 +402,28 @@ function buildUsageText(): string {
   ].join('\n')
 }
 
-function finishProfileSave(
+async function finishProfileSave(
   onDone: LocalJSXCommandOnDone,
   profile: ProviderProfile,
   env: ProfileEnv,
-): void {
+  profileFile?: ProfileFile,
+): Promise<void> {
   try {
-    const profileFile = createProfileFile(profile, env)
-    const filePath = saveProfileFile(profileFile)
-    onDone(buildProfileSaveMessage(profile, env, filePath), {
+    const pf = profileFile ?? createProfileFile(profile, env)
+    const filePath = saveProfileFile(pf)
+    const message = buildProfileSaveMessage(profile, env, filePath)
+
+    // Apply env vars immediately so the new provider is active
+    // in the current session without needing a restart.
+    const nextEnv = await buildStartupEnvFromProfile({
+      persisted: pf,
+      processEnv: process.env,
+    })
+    if (nextEnv !== process.env) {
+      applyProfileEnvToProcessEnv(process.env, nextEnv)
+    }
+
+    onDone(message, {
       display: 'system',
     })
   } catch (error) {
@@ -472,6 +531,12 @@ function ProviderChooser({
       label: 'Gemini',
       value: 'gemini',
       description: 'Use Google Gemini with API key, access token, or local ADC',
+    },
+    {
+      label: 'OpenRouter',
+      value: 'openrouter',
+      description:
+        'Access 200+ models through OpenRouter with a single API key',
     },
     {
       label: 'Codex',
@@ -971,6 +1036,8 @@ export function ProviderWizard({
               })
             } else if (value === 'gemini') {
               setStep({ name: 'gemini-auth-method' })
+            } else if (value === 'openrouter') {
+              setStep({ name: 'openrouter-key' })
             } else if (value === 'clear') {
               const filePath = deleteProfileFile()
               onDone(`Removed saved provider profile at ${filePath}. Restart OpenClaude to go back to normal startup.`, {
@@ -1299,6 +1366,93 @@ export function ProviderWizard({
               : step.authMode === 'access-token'
                 ? setStep({ name: 'gemini-access-token' })
                 : setStep({ name: 'gemini-auth-method' })
+          }
+        />
+      )
+
+    case 'openrouter-key':
+      return (
+        <TextEntryDialog
+          resetStateKey={step.name}
+          title="OpenRouter setup"
+          subtitle="Step 1 of 3"
+          description={
+            process.env.OPENROUTER_API_KEY
+              ? 'Enter an OpenRouter API key, or leave this blank to reuse the current OPENROUTER_API_KEY from this session.'
+              : 'Enter an OpenRouter API key. You can create one at https://openrouter.ai/keys.'
+          }
+          initialValue=""
+          placeholder="sk-or-..."
+          mask="*"
+          allowEmpty={Boolean(process.env.OPENROUTER_API_KEY)}
+          validate={value => {
+            const candidate = value.trim() || process.env.OPENROUTER_API_KEY || ''
+            return sanitizeApiKey(candidate)
+              ? null
+              : 'Enter a real API key.'
+          }}
+          onSubmit={value => {
+            const apiKey = value.trim() || process.env.OPENROUTER_API_KEY || ''
+            setStep({
+              name: 'openrouter-base',
+              apiKey,
+            })
+          }}
+          onCancel={() => setStep({ name: 'choose' })}
+        />
+      )
+
+    case 'openrouter-base':
+      return (
+        <TextEntryDialog
+          resetStateKey={step.name}
+          title="OpenRouter setup"
+          subtitle="Step 2 of 3"
+          description={`Optionally enter a base URL. Leave blank for ${DEFAULT_OPENROUTER_BASE_URL}.`}
+          initialValue=""
+          placeholder={DEFAULT_OPENROUTER_BASE_URL}
+          allowEmpty
+          onSubmit={value => {
+            setStep({
+              name: 'openrouter-model',
+              apiKey: step.apiKey,
+              baseUrl: value.trim() || null,
+            })
+          }}
+          onCancel={() =>
+            setStep({
+              name: 'openrouter-key',
+            })
+          }
+        />
+      )
+
+    case 'openrouter-model':
+      return (
+        <TextEntryDialog
+          resetStateKey={step.name}
+          title="OpenRouter setup"
+          subtitle="Step 3 of 3"
+          description={`Enter a model name (e.g. anthropic/claude-sonnet-4-6). Leave blank for ${DEFAULT_OPENROUTER_MODEL}.`}
+          initialValue={defaults.openRouterModel ?? DEFAULT_OPENROUTER_MODEL}
+          placeholder={DEFAULT_OPENROUTER_MODEL}
+          allowEmpty
+          onSubmit={value => {
+            const env = buildOpenRouterProfileEnv({
+              apiKey: step.apiKey,
+              baseUrl: step.baseUrl,
+              model: value.trim() || DEFAULT_OPENROUTER_MODEL,
+              processEnv: {},
+            })
+            if (env) {
+              finishProfileSave(onDone, 'openrouter', env)
+            }
+          }}
+          onCancel={() =>
+            setStep({
+              name: 'openrouter-base',
+              apiKey: step.apiKey,
+            })
           }
         />
       )

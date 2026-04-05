@@ -47,6 +47,10 @@ export function getSmallFastModel(): ModelName {
   if (getAPIProvider() === 'github') {
     return process.env.OPENAI_MODEL || 'github:copilot'
   }
+  // For OpenRouter provider
+  if (getAPIProvider() === 'openrouter') {
+    return process.env.OPENROUTER_MODEL || 'anthropic/claude-haiku-4-5-20251001'
+  }
   return getDefaultHaikuModel()
 }
 
@@ -145,6 +149,10 @@ export function getDefaultOpusModel(): ModelName {
   if (getAPIProvider() === 'github') {
     return process.env.OPENAI_MODEL || 'github:copilot'
   }
+  // OpenRouter provider
+  if (getAPIProvider() === 'openrouter') {
+    return process.env.OPENROUTER_MODEL || 'anthropic/claude-opus-4.6'
+  }
   // 3P providers (Bedrock, Vertex, Foundry) — kept as a separate branch
   // even when values match, since 3P availability lags firstParty and
   // these will diverge again at the next model launch.
@@ -175,6 +183,10 @@ export function getDefaultSonnetModel(): ModelName {
   if (getAPIProvider() === 'github') {
     return process.env.OPENAI_MODEL || 'github:copilot'
   }
+  // OpenRouter provider
+  if (getAPIProvider() === 'openrouter') {
+    return process.env.OPENROUTER_MODEL || 'anthropic/claude-sonnet-4-6'
+  }
   // Default to Sonnet 4.5 for 3P since they may not have 4.6 yet
   if (getAPIProvider() !== 'firstParty') {
     return getModelStrings().sonnet45
@@ -198,6 +210,10 @@ export function getDefaultHaikuModel(): ModelName {
   // GitHub Copilot provider
   if (getAPIProvider() === 'github') {
     return process.env.OPENAI_MODEL || 'github:copilot'
+  }
+  // OpenRouter provider
+  if (getAPIProvider() === 'openrouter') {
+    return process.env.OPENROUTER_MODEL || 'anthropic/claude-sonnet-4-6'
   }
   // Gemini provider
   if (getAPIProvider() === 'gemini') {
@@ -443,8 +459,8 @@ export function renderModelSetting(setting: ModelName | ModelAlias): string {
  * if the model is not recognized as a public model.
  */
 export function getPublicModelDisplayName(model: ModelName): string | null {
-  // For OpenAI/Gemini/Codex/GitHub providers, show the actual model name not a Claude alias
-  if (getAPIProvider() === 'openai' || getAPIProvider() === 'gemini' || getAPIProvider() === 'codex' || getAPIProvider() === 'github') {
+  // For OpenAI/Gemini/Codex/GitHub/OpenRouter providers, show the actual model name not a Claude alias
+  if (getAPIProvider() === 'openai' || getAPIProvider() === 'gemini' || getAPIProvider() === 'codex' || getAPIProvider() === 'github' || getAPIProvider() === 'openrouter') {
     // Return display names for known GitHub Copilot models
     const copilotModelNames: Record<string, string> = {
       'gpt-5.4': 'GPT-5.4',

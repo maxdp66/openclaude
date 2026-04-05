@@ -19,6 +19,7 @@ export const VALID_PROVIDERS = [
   'bedrock',
   'vertex',
   'ollama',
+  'openrouter',
 ] as const
 
 export type ProviderFlagName = (typeof VALID_PROVIDERS)[number]
@@ -112,6 +113,11 @@ export function applyProviderFlag(
       process.env.OPENAI_BASE_URL ??= 'http://localhost:11434/v1'
       process.env.OPENAI_API_KEY ??= 'ollama'
       if (model) process.env.OPENAI_MODEL ??= model
+      break
+
+    case 'openrouter':
+      process.env.CLAUDE_CODE_USE_OPENROUTER = '1'
+      if (model) process.env.OPENROUTER_MODEL ??= model
       break
   }
 

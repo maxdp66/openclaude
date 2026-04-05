@@ -57,8 +57,6 @@ import { clearSessionHooks } from '../../utils/hooks/sessionHooks.js'
 import { executeSubagentStartHooks } from '../../utils/hooks.js'
 import { createUserMessage } from '../../utils/messages.js'
 import { getAgentModel } from '../../utils/model/agent.js'
-import { resolveAgentProvider } from '../../services/api/agentRouting.js'
-import { getInitialSettings } from '../../utils/settings/settings.js'
 import type { ModelAlias } from '../../utils/model/aliases.js'
 import {
   clearAgentTranscriptSubdir,
@@ -269,7 +267,6 @@ export async function* runAgent({
   description,
   transcriptSubdir,
   onQueryProgress,
-  agentName,
 }: {
   agentDefinition: AgentDefinition
   promptMessages: Message[]
@@ -329,8 +326,6 @@ export async function* runAgent({
    * during long single-block streams (e.g. thinking) where no assistant
    * message is yielded for >60s. */
   onQueryProgress?: () => void
-  /** Agent name (team member name) for routing resolution */
-  agentName?: string
 }): AsyncGenerator<Message, void> {
   // Track subagent usage for feature discovery
 
@@ -349,13 +344,7 @@ export async function* runAgent({
     permissionMode,
   )
 
-  // Resolve per-agent provider routing from settings
-  const providerOverride = resolveAgentProvider(
-    agentName,
-    agentDefinition.agentType,
-    getInitialSettings(),
-  )
-  const effectiveModel = providerOverride ? providerOverride.model : resolvedAgentModel
+  const effectiveModel = resolvedAgentModel
 
   const agentId = override?.agentId ? override.agentId : createAgentId()
 
@@ -689,7 +678,7 @@ export async function* runAgent({
     debug: toolUseContext.options.debug,
     verbose: toolUseContext.options.verbose,
     mainLoopModel: effectiveModel,
-    providerOverride: providerOverride ?? undefined,
+    providerOverride: undefined,
     // For fork children (useExactTools), inherit thinking config to match the
     // parent's API request prefix for prompt cache hits. For regular
     // sub-agents, disable thinking to control output token costs.

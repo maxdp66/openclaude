@@ -139,6 +139,7 @@ import agents from './commands/agents/index.js'
 import autoFix from './commands/auto-fix.js'
 import plugin from './commands/plugin/index.js'
 import reloadPlugins from './commands/reload-plugins/index.js'
+import reload from './commands/reload.js'
 import rewind from './commands/rewind/index.js'
 import heapDump from './commands/heapdump/index.js'
 import mockLimits from './commands/mock-limits/index.js'
@@ -303,6 +304,7 @@ const COMMANDS = memoize((): Command[] => [
   provider,
   pr_comments,
   releaseNotes,
+  reload,
   reloadPlugins,
   rename,
   resume,

@@ -37,6 +37,7 @@ export const CLAUDE_3_7_SONNET_CONFIG = {
   gemini: 'gemini-2.0-flash',
   github: 'github:copilot',
   codex: 'gpt-5.4',
+  openrouter: 'anthropic/claude-3-7-sonnet-20250219',
 } as const satisfies ModelConfig
 
 export const CLAUDE_3_5_V2_SONNET_CONFIG = {
@@ -48,6 +49,7 @@ export const CLAUDE_3_5_V2_SONNET_CONFIG = {
   gemini: 'gemini-2.0-flash',
   github: 'github:copilot',
   codex: 'gpt-5.4',
+  openrouter: 'anthropic/claude-3-5-sonnet-20241022',
 } as const satisfies ModelConfig
 
 export const CLAUDE_3_5_HAIKU_CONFIG = {
@@ -59,6 +61,7 @@ export const CLAUDE_3_5_HAIKU_CONFIG = {
   gemini: 'gemini-2.0-flash-lite',
   github: 'github:copilot',
   codex: 'gpt-5.4',
+  openrouter: 'anthropic/claude-3-5-haiku-20241022',
 } as const satisfies ModelConfig
 
 export const CLAUDE_HAIKU_4_5_CONFIG = {
@@ -70,6 +73,7 @@ export const CLAUDE_HAIKU_4_5_CONFIG = {
   gemini: 'gemini-2.0-flash-lite',
   github: 'github:copilot',
   codex: 'gpt-5.4',
+  openrouter: 'anthropic/claude-haiku-4-5-20251001',
 } as const satisfies ModelConfig
 
 export const CLAUDE_SONNET_4_CONFIG = {
@@ -81,6 +85,7 @@ export const CLAUDE_SONNET_4_CONFIG = {
   gemini: 'gemini-2.0-flash',
   github: 'github:copilot',
   codex: 'gpt-5.4',
+  openrouter: 'anthropic/claude-sonnet-4-20250514',
 } as const satisfies ModelConfig
 
 export const CLAUDE_SONNET_4_5_CONFIG = {
@@ -92,6 +97,7 @@ export const CLAUDE_SONNET_4_5_CONFIG = {
   gemini: 'gemini-2.0-flash',
   github: 'github:copilot',
   codex: 'gpt-5.4',
+  openrouter: 'anthropic/claude-sonnet-4-5-20250929',
 } as const satisfies ModelConfig
 
 export const CLAUDE_OPUS_4_CONFIG = {
@@ -103,6 +109,7 @@ export const CLAUDE_OPUS_4_CONFIG = {
   gemini: 'gemini-2.5-pro-preview-03-25',
   github: 'github:copilot',
   codex: 'gpt-5.4',
+  openrouter: 'anthropic/claude-opus-4-20250514',
 } as const satisfies ModelConfig
 
 export const CLAUDE_OPUS_4_1_CONFIG = {
@@ -114,6 +121,7 @@ export const CLAUDE_OPUS_4_1_CONFIG = {
   gemini: 'gemini-2.5-pro-preview-03-25',
   github: 'github:copilot',
   codex: 'gpt-5.4',
+  openrouter: 'anthropic/claude-opus-4-1-20250805',
 } as const satisfies ModelConfig
 
 export const CLAUDE_OPUS_4_5_CONFIG = {
@@ -125,6 +133,7 @@ export const CLAUDE_OPUS_4_5_CONFIG = {
   gemini: 'gemini-2.5-pro-preview-03-25',
   github: 'github:copilot',
   codex: 'gpt-5.4',
+  openrouter: 'anthropic/claude-opus-4-5-20251101',
 } as const satisfies ModelConfig
 
 export const CLAUDE_OPUS_4_6_CONFIG = {
@@ -136,6 +145,7 @@ export const CLAUDE_OPUS_4_6_CONFIG = {
   gemini: 'gemini-2.5-pro-preview-03-25',
   github: 'github:copilot',
   codex: 'gpt-5.4',
+  openrouter: 'anthropic/claude-opus-4.6',
 } as const satisfies ModelConfig
 
 export const CLAUDE_SONNET_4_6_CONFIG = {
@@ -147,6 +157,7 @@ export const CLAUDE_SONNET_4_6_CONFIG = {
   gemini: 'gemini-2.0-flash',
   github: 'github:copilot',
   codex: 'gpt-5.4',
+  openrouter: 'anthropic/claude-sonnet-4-6',
 } as const satisfies ModelConfig
 
 // @[MODEL LAUNCH]: Register the new config here.

@@ -119,6 +119,8 @@ function isLocalBaseUrl(baseUrl: string): boolean {
 
 const GEMINI_DEFAULT_BASE_URL = 'https://generativelanguage.googleapis.com/v1beta/openai'
 const GITHUB_COPILOT_BASE = 'https://api.githubcopilot.com'
+const GITHUB_MODELS_DEFAULT_BASE = 'https://models.github.ai/inference'
+const OPENROUTER_DEFAULT_BASE_URL = 'https://openrouter.ai/api/v1'
 
 function currentBaseUrl(): string {
   if (isTruthy(process.env.CLAUDE_CODE_USE_GEMINI)) {
@@ -126,6 +128,9 @@ function currentBaseUrl(): string {
   }
   if (isTruthy(process.env.CLAUDE_CODE_USE_GITHUB)) {
     return process.env.OPENAI_BASE_URL ?? GITHUB_COPILOT_BASE
+  }
+  if (isTruthy(process.env.CLAUDE_CODE_USE_OPENROUTER)) {
+    return process.env.OPENROUTER_BASE_URL ?? OPENROUTER_DEFAULT_BASE_URL
   }
   return process.env.OPENAI_BASE_URL ?? 'https://api.openai.com/v1'
 }
@@ -150,6 +155,31 @@ function checkGeminiEnv(): CheckResult[] {
     results.push(fail('GEMINI_API_KEY', 'Missing. Set GEMINI_API_KEY or GOOGLE_API_KEY.'))
   } else {
     results.push(pass('GEMINI_API_KEY', 'Configured.'))
+  }
+
+  return results
+}
+
+function checkOpenRouterEnv(): CheckResult[] {
+  const results: CheckResult[] = []
+  const model = process.env.OPENROUTER_MODEL
+  const key = process.env.OPENROUTER_API_KEY
+  const baseUrl = process.env.OPENROUTER_BASE_URL ?? OPENROUTER_DEFAULT_BASE_URL
+
+  results.push(pass('Provider mode', 'OpenRouter provider enabled.'))
+
+  if (!model) {
+    results.push(pass('OPENROUTER_MODEL', 'Not set. Default anthropic/claude-sonnet-4-6 will be used.'))
+  } else {
+    results.push(pass('OPENROUTER_MODEL', model))
+  }
+
+  results.push(pass('OPENROUTER_BASE_URL', baseUrl))
+
+  if (!key) {
+    results.push(fail('OPENROUTER_API_KEY', 'Missing. Set OPENROUTER_API_KEY.'))
+  } else {
+    results.push(pass('OPENROUTER_API_KEY', 'Configured.'))
   }
 
   return results
@@ -186,10 +216,15 @@ function checkOpenAIEnv(): CheckResult[] {
   const results: CheckResult[] = []
   const useGemini = isTruthy(process.env.CLAUDE_CODE_USE_GEMINI)
   const useGithub = isTruthy(process.env.CLAUDE_CODE_USE_GITHUB)
+  const useOpenRouter = isTruthy(process.env.CLAUDE_CODE_USE_OPENROUTER)
   const useOpenAI = isTruthy(process.env.CLAUDE_CODE_USE_OPENAI)
 
   if (useGemini) {
     return checkGeminiEnv()
+  }
+
+  if (useOpenRouter) {
+    return checkOpenRouterEnv()
   }
 
   if (useGithub && !useOpenAI) {
@@ -268,8 +303,9 @@ async function checkBaseUrlReachability(): Promise<CheckResult> {
   const useGemini = isTruthy(process.env.CLAUDE_CODE_USE_GEMINI)
   const useOpenAI = isTruthy(process.env.CLAUDE_CODE_USE_OPENAI)
   const useGithub = isTruthy(process.env.CLAUDE_CODE_USE_GITHUB)
+  const useOpenRouter = isTruthy(process.env.CLAUDE_CODE_USE_OPENROUTER)
 
-  if (!useGemini && !useOpenAI && !useGithub) {
+  if (!useGemini && !useOpenAI && !useGithub && !useOpenRouter) {
     return pass('Provider reachability', 'Skipped (OpenAI-compatible mode disabled).')
   }
 
@@ -277,6 +313,13 @@ async function checkBaseUrlReachability(): Promise<CheckResult> {
     return pass(
       'Provider reachability',
       'Skipped for GitHub Models (inference endpoint differs from OpenAI /models probe).',
+    )
+  }
+
+  if (useOpenRouter) {
+    return pass(
+      'Provider reachability',
+      'Skipped for OpenRouter (endpoint is OpenAI-compatible /chat/completions).',
     )
   }
 

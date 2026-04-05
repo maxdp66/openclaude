@@ -397,6 +397,7 @@ test('gemini profiles require a key', () => {
 
 test('saveProfileFile writes a profile that loadProfileFile can read back', () => {
   const cwd = mkdtempSync(join(tmpdir(), 'openclaude-profile-file-'))
+  const filePath = join(cwd, PROFILE_FILE_NAME)
 
   try {
     const persisted = createProfileFile('openai', {
@@ -404,14 +405,14 @@ test('saveProfileFile writes a profile that loadProfileFile can read back', () =
       OPENAI_MODEL: 'gpt-4o',
     })
 
-    const filePath = saveProfileFile(persisted, { cwd })
+    const savedPath = saveProfileFile(persisted, { filePath })
 
-    assert.equal(filePath, join(cwd, PROFILE_FILE_NAME))
+    assert.equal(savedPath, filePath)
     assert.equal(
       JSON.parse(readFileSync(filePath, 'utf8')).profile,
       'openai',
     )
-    assert.deepEqual(loadProfileFile({ cwd }), persisted)
+    assert.deepEqual(loadProfileFile({ filePath }), persisted)
   } finally {
     rmSync(cwd, { recursive: true, force: true })
   }

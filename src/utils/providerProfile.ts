@@ -14,11 +14,14 @@ import {
 } from './providerRecommendation.ts'
 import { readGeminiAccessToken } from './geminiCredentials.ts'
 import { getOllamaChatBaseUrl } from './providerDiscovery.ts'
+import { getClaudeConfigHomeDir } from './envUtils.ts'
 
 export const PROFILE_FILE_NAME = '.openclaude-profile.json'
 export const DEFAULT_GEMINI_BASE_URL =
   'https://generativelanguage.googleapis.com/v1beta/openai'
 export const DEFAULT_GEMINI_MODEL = 'gemini-2.0-flash'
+export const DEFAULT_OPENROUTER_BASE_URL = 'https://openrouter.ai/api/v1'
+export const DEFAULT_OPENROUTER_MODEL = 'anthropic/claude-sonnet-4-6'
 
 const PROFILE_ENV_KEYS = [
   'CLAUDE_CODE_USE_OPENAI',
@@ -26,6 +29,7 @@ const PROFILE_ENV_KEYS = [
   'CLAUDE_CODE_USE_BEDROCK',
   'CLAUDE_CODE_USE_VERTEX',
   'CLAUDE_CODE_USE_FOUNDRY',
+  'CLAUDE_CODE_USE_OPENROUTER',
   'OPENAI_BASE_URL',
   'OPENAI_MODEL',
   'OPENAI_API_KEY',
@@ -38,6 +42,9 @@ const PROFILE_ENV_KEYS = [
   'GEMINI_MODEL',
   'GEMINI_BASE_URL',
   'GOOGLE_API_KEY',
+  'OPENROUTER_API_KEY',
+  'OPENROUTER_MODEL',
+  'OPENROUTER_BASE_URL',
 ] as const
 
 const SECRET_ENV_KEYS = [
@@ -45,9 +52,10 @@ const SECRET_ENV_KEYS = [
   'CODEX_API_KEY',
   'GEMINI_API_KEY',
   'GOOGLE_API_KEY',
+  'OPENROUTER_API_KEY',
 ] as const
 
-export type ProviderProfile = 'openai' | 'ollama' | 'codex' | 'gemini' | 'atomic-chat'
+export type ProviderProfile = 'openai' | 'ollama' | 'codex' | 'gemini' | 'atomic-chat' | 'openrouter'
 
 export type ProfileEnv = {
   OPENAI_BASE_URL?: string
@@ -60,6 +68,9 @@ export type ProfileEnv = {
   GEMINI_AUTH_MODE?: 'api-key' | 'access-token' | 'adc'
   GEMINI_MODEL?: string
   GEMINI_BASE_URL?: string
+  OPENROUTER_API_KEY?: string
+  OPENROUTER_MODEL?: string
+  OPENROUTER_BASE_URL?: string
 }
 
 export type ProfileFile = {
@@ -76,7 +87,6 @@ type SecretValueSource = Partial<
 >
 
 type ProfileFileLocation = {
-  cwd?: string
   filePath?: string
 }
 
@@ -85,7 +95,15 @@ function resolveProfileFilePath(options?: ProfileFileLocation): string {
     return options.filePath
   }
 
-  return resolve(options?.cwd ?? process.cwd(), PROFILE_FILE_NAME)
+  const newPath = resolve(getClaudeConfigHomeDir(), PROFILE_FILE_NAME)
+  // Backwards compat: fall back to legacy cwd-based path if config-dir path doesn't exist
+  if (!existsSync(newPath)) {
+    const legacyPath = resolve(process.cwd(), PROFILE_FILE_NAME)
+    if (existsSync(legacyPath)) {
+      return legacyPath
+    }
+  }
+  return newPath
 }
 
 export function isProviderProfile(value: unknown): value is ProviderProfile {
@@ -94,7 +112,8 @@ export function isProviderProfile(value: unknown): value is ProviderProfile {
     value === 'ollama' ||
     value === 'codex' ||
     value === 'gemini' ||
-    value === 'atomic-chat'
+    value === 'atomic-chat' ||
+    value === 'openrouter'
   )
 }
 
@@ -268,6 +287,44 @@ export function buildGeminiProfileEnv(options: {
   return env
 }
 
+export function buildOpenRouterProfileEnv(options: {
+  model?: string | null
+  baseUrl?: string | null
+  apiKey?: string | null
+  processEnv?: NodeJS.ProcessEnv
+}): ProfileEnv | null {
+  const processEnv = options.processEnv ?? process.env
+  const key = sanitizeApiKey(options.apiKey ?? processEnv.OPENROUTER_API_KEY)
+  if (!key) {
+    return null
+  }
+
+  const env: ProfileEnv = {
+    OPENROUTER_MODEL:
+      sanitizeProviderConfigValue(options.model, { OPENROUTER_API_KEY: key }, processEnv) ||
+      sanitizeProviderConfigValue(
+        processEnv.OPENROUTER_MODEL,
+        { OPENROUTER_API_KEY: key },
+        processEnv,
+      ) ||
+      DEFAULT_OPENROUTER_MODEL,
+    OPENROUTER_API_KEY: key,
+  }
+
+  const baseUrl =
+    sanitizeProviderConfigValue(options.baseUrl, { OPENROUTER_API_KEY: key }, processEnv) ||
+    sanitizeProviderConfigValue(
+      processEnv.OPENROUTER_BASE_URL,
+      { OPENROUTER_API_KEY: key },
+      processEnv,
+    )
+  if (baseUrl) {
+    env.OPENROUTER_BASE_URL = baseUrl
+  }
+
+  return env
+}
+
 export function buildOpenAIProfileEnv(options: {
   goal: RecommendationGoal
   model?: string | null
@@ -418,7 +475,8 @@ export function hasExplicitProviderSelection(
     processEnv.CLAUDE_CODE_USE_GEMINI !== undefined ||
     processEnv.CLAUDE_CODE_USE_BEDROCK !== undefined ||
     processEnv.CLAUDE_CODE_USE_VERTEX !== undefined ||
-    processEnv.CLAUDE_CODE_USE_FOUNDRY !== undefined
+    processEnv.CLAUDE_CODE_USE_FOUNDRY !== undefined ||
+    processEnv.CLAUDE_CODE_USE_OPENROUTER !== undefined
   )
 }
 
@@ -623,6 +681,66 @@ export async function buildLaunchEnv(options: {
       delete env.CHATGPT_ACCOUNT_ID
     }
     delete env.CODEX_ACCOUNT_ID
+
+    return env
+  }
+
+  if (options.profile === 'openrouter') {
+    const shellOpenRouterModel = sanitizeProviderConfigValue(
+      processEnv.OPENROUTER_MODEL,
+      processEnv,
+    )
+    const shellOpenRouterBaseUrl = sanitizeProviderConfigValue(
+      processEnv.OPENROUTER_BASE_URL,
+      processEnv,
+    )
+    const persistedOpenRouterModel = sanitizeProviderConfigValue(
+      persistedEnv.OPENROUTER_MODEL,
+      persistedEnv,
+    )
+    const persistedOpenRouterBaseUrl = sanitizeProviderConfigValue(
+      persistedEnv.OPENROUTER_BASE_URL,
+      persistedEnv,
+    )
+    const shellOpenRouterKey = sanitizeApiKey(
+      processEnv.OPENROUTER_API_KEY,
+    )
+    const persistedOpenRouterKey = sanitizeApiKey(persistedEnv.OPENROUTER_API_KEY)
+
+    const env: NodeJS.ProcessEnv = {
+      ...processEnv,
+      CLAUDE_CODE_USE_OPENROUTER: '1',
+    }
+
+    delete env.CLAUDE_CODE_USE_OPENAI
+    delete env.CLAUDE_CODE_USE_GEMINI
+    delete env.CLAUDE_CODE_USE_GITHUB
+    delete env.GEMINI_API_KEY
+    delete env.GEMINI_MODEL
+    delete env.GEMINI_BASE_URL
+    delete env.GOOGLE_API_KEY
+    delete env.OPENAI_BASE_URL
+    delete env.OPENAI_MODEL
+    delete env.OPENAI_API_KEY
+    delete env.CODEX_API_KEY
+    delete env.CHATGPT_ACCOUNT_ID
+    delete env.CODEX_ACCOUNT_ID
+
+    env.OPENROUTER_MODEL =
+      shellOpenRouterModel ||
+      persistedOpenRouterModel ||
+      DEFAULT_OPENROUTER_MODEL
+    env.OPENROUTER_BASE_URL =
+      shellOpenRouterBaseUrl ||
+      persistedOpenRouterBaseUrl ||
+      DEFAULT_OPENROUTER_BASE_URL
+
+    const openRouterKey = shellOpenRouterKey || persistedOpenRouterKey
+    if (openRouterKey) {
+      env.OPENROUTER_API_KEY = openRouterKey
+    } else {
+      delete env.OPENROUTER_API_KEY
+    }
 
     return env
   }

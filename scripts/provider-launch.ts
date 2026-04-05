@@ -50,7 +50,7 @@ function parseLaunchOptions(argv: string[]): LaunchOptions {
       continue
     }
 
-    if ((lower === 'auto' || lower === 'openai' || lower === 'ollama' || lower === 'codex' || lower === 'gemini' || lower === 'atomic-chat') && requestedProfile === 'auto') {
+    if ((lower === 'auto' || lower === 'openai' || lower === 'ollama' || lower === 'codex' || lower === 'gemini' || lower === 'atomic-chat' || lower === 'openrouter') && requestedProfile === 'auto') {
       requestedProfile = lower as ProviderProfile | 'auto'
       continue
     }
@@ -128,6 +128,8 @@ function printSummary(profile: ProviderProfile): void {
     console.log('Using configured Codex/OpenAI-compatible provider settings.')
   } else if (profile === 'atomic-chat') {
     console.log('Using configured Atomic Chat provider settings.')
+  } else if (profile === 'openrouter') {
+    console.log('Using configured OpenRouter provider settings.')
   } else if (profile === 'ollama') {
     console.log('Using configured Ollama provider settings.')
   } else {
@@ -139,7 +141,7 @@ async function main(): Promise<void> {
   const options = parseLaunchOptions(process.argv.slice(2))
   const requestedProfile = options.requestedProfile
   if (!requestedProfile) {
-    console.error('Usage: bun run scripts/provider-launch.ts [openai|ollama|codex|gemini|atomic-chat|auto] [--fast] [--goal <latency|balanced|coding>] [-- <cli args>]')
+    console.error('Usage: bun run scripts/provider-launch.ts [openai|ollama|codex|gemini|atomic-chat|openrouter|auto] [--fast] [--goal <latency|balanced|coding>] [-- <cli args>]')
     process.exit(1)
   }
 
@@ -207,6 +209,11 @@ async function main(): Promise<void> {
 
   if (profile === 'openai' && (!env.OPENAI_API_KEY || env.OPENAI_API_KEY === 'SUA_CHAVE')) {
     console.error('OPENAI_API_KEY is required for openai profile and cannot be SUA_CHAVE. Run: bun run profile:init -- --provider openai --api-key <key>')
+    process.exit(1)
+  }
+
+  if (profile === 'openrouter' && !env.OPENROUTER_API_KEY) {
+    console.error('OPENROUTER_API_KEY is required for openrouter profile. Run: bun run profile:init -- --provider openrouter --api-key <key>')
     process.exit(1)
   }
 

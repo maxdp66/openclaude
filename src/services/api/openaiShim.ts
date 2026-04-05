@@ -1559,6 +1559,13 @@ export function createOpenAIShimClient(options: {
     if (process.env.GEMINI_MODEL && !process.env.OPENAI_MODEL) {
       process.env.OPENAI_MODEL = process.env.GEMINI_MODEL
     }
+  } else if (isEnvTruthy(process.env.CLAUDE_CODE_USE_OPENROUTER)) {
+    process.env.OPENAI_BASE_URL ??=
+      process.env.OPENROUTER_BASE_URL ?? 'https://openrouter.ai/api/v1'
+    process.env.OPENAI_API_KEY ??= process.env.OPENROUTER_API_KEY ?? ''
+    if (process.env.OPENROUTER_MODEL && !process.env.OPENAI_MODEL) {
+      process.env.OPENAI_MODEL = process.env.OPENROUTER_MODEL
+    }
   } else if (isEnvTruthy(process.env.CLAUDE_CODE_USE_GITHUB)) {
     process.env.OPENAI_BASE_URL ??= GITHUB_COPILOT_BASE
     process.env.OPENAI_API_KEY ??=

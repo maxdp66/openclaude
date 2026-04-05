@@ -13,6 +13,7 @@ import {
   buildGeminiProfileEnv,
   buildOllamaProfileEnv,
   buildOpenAIProfileEnv,
+  buildOpenRouterProfileEnv,
   createProfileFile,
   saveProfileFile,
   selectAutoProfile,
@@ -37,7 +38,7 @@ function parseArg(name: string): string | null {
 
 function parseProviderArg(): ProviderProfile | 'auto' {
   const p = parseArg('--provider')?.toLowerCase()
-  if (p === 'openai' || p === 'ollama' || p === 'codex' || p === 'gemini' || p === 'atomic-chat') return p
+  if (p === 'openai' || p === 'ollama' || p === 'codex' || p === 'gemini' || p === 'atomic-chat' || p === 'openrouter') return p
   return 'auto'
 }
 
@@ -146,6 +147,21 @@ async function main(): Promise<void> {
     }
 
     env = builtEnv
+  } else if (selected === 'openrouter') {
+    const builtEnv = buildOpenRouterProfileEnv({
+      model: argModel || null,
+      baseUrl: argBaseUrl || null,
+      apiKey: argApiKey || null,
+      processEnv: process.env,
+    })
+
+    if (!builtEnv) {
+      console.error('OpenRouter profile requires an API key. Use --api-key or set OPENROUTER_API_KEY.')
+      console.error('Get a key at: https://openrouter.ai/keys')
+      process.exit(1)
+    }
+
+    env = builtEnv
   } else {
     const builtEnv = buildOpenAIProfileEnv({
       goal,
@@ -169,7 +185,7 @@ async function main(): Promise<void> {
 
   console.log(`Saved profile: ${selected}`)
   console.log(`Goal: ${goal}`)
-  console.log(`Model: ${profile.env.GEMINI_MODEL || profile.env.OPENAI_MODEL || getGoalDefaultOpenAIModel(goal)}`)
+  console.log(`Model: ${profile.env.GEMINI_MODEL || profile.env.OPENAI_MODEL || profile.env.OPENROUTER_MODEL || getGoalDefaultOpenAIModel(goal)}`)
   console.log(`Path: ${outputPath}`)
   console.log('Next: bun run dev:profile')
 }
